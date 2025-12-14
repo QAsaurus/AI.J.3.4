@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Allow manual runs from GitHub UI (Actions -> Cypress E2E Tests -> Run workflow)
+  workflow_dispatch:
 
 jobs:
   cypress-run:
