@@ -40,8 +40,11 @@ jobs:
           sleep 3
           curl -s http://localhost:5000/ > /dev/null && echo "Flask app started successfully" || (cat /tmp/flask.log && exit 1)
 
-      - name: Run Cypress tests
-        run: npx cypress run --spec "cypress/e2e/translator_critic.cy.js" --browser chrome
+      - name: Run Cypress tests (use official action)
+        uses: cypress-io/github-action@v5
+        with:
+          spec: cypress/e2e/translator_critic.cy.js
+          browser: electron
 
       - name: Upload Cypress screenshots on failure
         if: failure()
@@ -50,8 +53,8 @@ jobs:
           name: cypress-screenshots
           path: cypress/screenshots/
 
-      - name: Upload Cypress videos
-        if: always()
+      - name: Upload Cypress videos on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: cypress-videos
