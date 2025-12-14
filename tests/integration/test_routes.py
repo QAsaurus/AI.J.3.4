@@ -150,3 +150,90 @@ def test_missing_api_key(client, monkeypatch):
     assert response.status_code == 200
     # Should contain the missing key error
     assert 'MENTORPIECE_API_KEY is not set' in response.get_data(as_text=True)
+
+@pytest.mark.parametrize("lang", ["Английский", "Французский", "Немецкий", "Португальский"])
+def test_all_languages_in_dropdown(client, monkeypatch, lang):
+    """
+    Test that all language options work correctly.
+    Submit form with each language and verify response is 200 OK with mocked translation.
+    Uses parametrize to run test once for each language.
+    """
+    response = client.post('/', data={
+        'source_text': 'Test text',
+        'target_lang': lang,
+        'mode': 'mock',
+    })
+
+    assert response.status_code == 200
+    response_text = response.get_data(as_text=True)
+    # In mock mode, should always return the mocked response
+    assert 'Mocked Translation' in response_text
+
+
+def test_boundary_case_very_long_text(client):
+    """
+    Boundary test: submit very long text (5000+ characters).
+    App should handle it without crashing and return mocked response.
+    """
+    long_text = "A" * 5000  # 5000 character text
+    
+    response = client.post('/', data={
+        'source_text': long_text,
+        'target_lang': 'Английский',
+        'mode': 'mock',
+    })
+
+    assert response.status_code == 200
+    response_text = response.get_data(as_text=True)
+    # Should successfully handle and return mocked response
+    assert 'Mocked Translation' in response_text
+
+
+def test_boundary_case_unicode_text(client):
+    """
+    Boundary test: submit text with Unicode (Russian, Chinese, emoji).
+    App should handle Unicode correctly and return mocked response.
+    """
+    unicode_texts = [
+        "Привет мир 🌍",  # Russian + emoji
+        "你好世界",        # Chinese
+        "مرحبا 👋",       # Arabic + emoji
+    ]
+
+    for text in unicode_texts:
+        response = client.post('/', data={
+            'source_text': text,
+            'target_lang': 'Английский',
+            'mode': 'mock',
+        })
+
+        assert response.status_code == 200
+        response_text = response.get_data(as_text=True)
+        # Should handle Unicode and return mocked translation
+        assert 'Mocked Translation' in response_text
+
+
+def test_different_http_error_codes(client, monkeypatch):
+    """
+    Test that different HTTP error codes (400, 401, 403, 404, 500) are handled gracefully.
+    App should show error message instead of crashing.
+    """
+    monkeypatch.setenv("MENTORPIECE_API_KEY", "test-key")
+
+    error_codes = [400, 401, 403, 404, 500]
+
+    for error_code in error_codes:
+        def fake_post_error(url, json, headers, timeout):
+            return make_mock_response({"error": f"HTTP {error_code}"}, error_code)
+
+        with patch("src.app.requests.post", side_effect=fake_post_error):
+            response = client.post('/', data={
+                'source_text': 'Test text',
+                'target_lang': 'Английский',
+                'mode': 'auth',
+            })
+
+            assert response.status_code == 200, f"Should return 200 even on HTTP {error_code}"
+            response_text = response.get_data(as_text=True)
+            # Should contain error indication
+            assert 'Network/HTTP error' in response_text, f"Should show error for HTTP {error_code}"

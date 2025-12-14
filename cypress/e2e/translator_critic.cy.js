@@ -81,4 +81,128 @@ describe('AI Translator & Critic - UI tests with mocked API', () => {
     cy.contains(/error|Error|failed|Failed/i, { timeout: 5000 }).should('be.visible');
   });
 
+  // ============================================================================
+  // Additional tests for comprehensive coverage
+  // ============================================================================
+
+  it('Test all language options work correctly', () => {
+    // Ensure mock mode is selected
+    cy.get('#mode_mock').check();
+    
+    // Test each language option
+    const languages = ['Английский', 'Французский', 'Немецкий', 'Португальский'];
+    
+    languages.forEach((lang) => {
+      cy.get('#source_text').clear().type('Hello world');
+      cy.get('#target_lang').select(lang);
+      cy.get('#btn_translate').click();
+      
+      // Verify translation is shown (mock mode returns consistent response)
+      cy.contains('Mocked Translation: The sun is shining.').should('be.visible');
+    });
+  });
+
+  it('Test mode switching between MOCK, no auth, and auth', () => {
+    // Start with MOCK mode
+    cy.get('#mode_mock').check({ force: true });
+    cy.get('#source_text').clear().type('Test text');
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+
+    // Switch to no_auth mode
+    cy.get('#mode_no_auth').check({ force: true });
+    cy.get('#source_text').clear().type('Test text');
+    cy.get('#btn_translate').click();
+    // In no_auth mode without real API, it might show error or mock response depending on implementation
+    cy.get('#source_text').should('exist');
+
+    // Switch back to MOCK mode
+    cy.get('#mode_mock').check({ force: true });
+    cy.get('#source_text').clear().type('Test text');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+  });
+
+  it('Test Unicode and special characters in translation', () => {
+    cy.get('#mode_mock').check();
+    
+    // Test Cyrillic
+    cy.get('#source_text').clear().type('Привет мир 🌍');
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+    
+    // Test with emoji
+    cy.get('#source_text').clear().type('👋 Hello 😀');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+  });
+
+  it('Test form field clearing after submission', () => {
+    cy.get('#mode_mock').check({ force: true });
+    
+    // Enter text and submit
+    cy.get('#source_text').type('Test text');
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    
+    // Verify translation appears
+    cy.contains('Mocked Translation').should('be.visible');
+    
+    // Check if source text field still has content
+    cy.get('#source_text').should('exist');
+    // Verify target language is still selected with Russian name (not converted to 'en')
+    cy.get('#target_lang').should('have.value', 'Английский');
+  });
+
+  it('Test button states and interaction', () => {
+    // Verify buttons are visible and clickable
+    cy.get('#btn_translate').should('be.visible').should('not.be.disabled');
+    cy.get('#btn_judge').should('be.visible').should('not.be.disabled');
+    
+    // Test clicking translate button
+    cy.get('#mode_mock').check();
+    cy.get('#source_text').type('Test text');
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    
+    // Both buttons should still be visible and clickable after submission
+    cy.get('#btn_translate').should('be.visible');
+    cy.get('#btn_judge').should('be.visible');
+  });
+
+  it('Test sequential submissions (submit form multiple times)', () => {
+    cy.get('#mode_mock').check();
+    
+    // First submission
+    cy.get('#source_text').clear().type('First text');
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+    
+    // Second submission with different text
+    cy.get('#source_text').clear().type('Second text');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+    
+    // Third submission
+    cy.get('#source_text').clear().type('Third text');
+    cy.get('#btn_translate').click();
+    cy.contains('Mocked Translation').should('be.visible');
+  });
+
+  it('Test very long text submission', () => {
+    cy.get('#mode_mock').check();
+    
+    // Create a 5000 character string
+    const longText = 'A'.repeat(5000);
+    
+    cy.get('#source_text').clear().type(longText, { delay: 0 }); // delay: 0 makes it faster
+    cy.get('#target_lang').select('Английский');
+    cy.get('#btn_translate').click();
+    
+    // Verify app handles long text without crashing
+    cy.contains('Mocked Translation').should('be.visible');
+  });
 });

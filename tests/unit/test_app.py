@@ -34,6 +34,8 @@ def make_mock_response(json_data, status_code=200):
     - `raise_for_status()` raises nothing for 200, or raises a
       requests.exceptions.HTTPError for other status codes.
     """
+    import requests
+    
     mock_resp = Mock()
     mock_resp.status_code = status_code
     mock_resp.json.return_value = json_data
@@ -128,3 +130,91 @@ def test_call_llm_network_error(monkeypatch):
         # Use auth mode to exercise network call path
         result = app_module.call_llm("Qwen/Qwen3-VL-30B-A3B-Instruct", ["text"], mode='auth') 
         assert result.startswith("Network/HTTP error when calling LLM")
+
+def test_call_llm_unicode_and_special_characters():
+    """
+    Unicode test: ensure call_llm works with Cyrillic, Chinese, emoji, and special chars.
+    Mock mode should return deterministic response regardless of input text.
+    """
+    
+    # Test mock mode with various Unicode inputs
+    test_cases = [
+        "Привет мир",  # Cyrillic (Russian)
+        "你好世界",      # Chinese
+        "مرحبا العالم",  # Arabic
+        "👋 Hello 😀",   # Emoji
+        "Ñoño 🎉 мир"   # Mixed
+    ]
+    
+    for text in test_cases:
+        result = app_module.call_llm("Qwen/Qwen3-VL-30B-A3B-Instruct", [text], mode='mock')
+        assert "Mocked Translation" in result, f"Failed for text: {text}"
+    
+    # Test auth mode with Unicode and mocked post
+    monkeypatch_obj = pytest.MonkeyPatch()
+    monkeypatch_obj.setenv("MENTORPIECE_API_KEY", "test-key")
+    
+    def fake_post_unicode(url, json, headers, timeout):
+        prompt = json.get("prompt", "")
+        return make_mock_response({"response": f"Translation of: {prompt}"}, 200)
+    
+    with patch("src.app.requests.post", side_effect=fake_post_unicode):
+        result = app_module.call_llm("Qwen/Qwen3-VL-30B-A3B-Instruct", ["中文"], mode='auth')
+        assert "Translation of:" in result
+
+
+def test_call_llm_http_error_statuses(monkeypatch):
+    """
+    HTTP error test: ensure call_llm handles 400, 401, 403, 404, 500 gracefully.
+    All should return error string, not raise exception.
+    """
+    
+    monkeypatch.setenv("MENTORPIECE_API_KEY", "test-key")
+    
+    error_codes = [400, 401, 403, 404, 500, 502, 503]
+    
+    for error_code in error_codes:
+        def fake_post_error(url, json, headers, timeout):
+            return make_mock_response({"error": f"HTTP {error_code}"}, error_code)
+        
+        with patch("src.app.requests.post", side_effect=fake_post_error):
+            result = app_module.call_llm("Qwen/Qwen3-VL-30B-A3B-Instruct", ["test"], mode='auth')
+            # Should return error message, not raise
+            assert isinstance(result, str)
+            assert "Network/HTTP error" in result, \
+                f"Expected error message for status {error_code}, got: {result}"
+
+
+def test_call_llm_validates_request_payload(monkeypatch):
+    """
+    Validation test: ensure call_llm sends correct headers and payload structure to API.
+    We mock requests.post to capture and verify the actual call arguments.
+    """
+    
+    monkeypatch.setenv("MENTORPIECE_API_KEY", "secret-api-key-123")
+    
+    with patch("src.app.requests.post") as mock_post:
+        mock_post.return_value = make_mock_response({"response": "OK"}, 200)
+        
+        # Call with auth mode
+        test_messages = ["Hello world"]
+        app_module.call_llm("Qwen/Qwen3-VL-30B-A3B-Instruct", test_messages, mode='auth')
+        
+        # Verify requests.post was called with correct arguments
+        assert mock_post.called, "requests.post should be called in auth mode"
+        
+        # Get the call arguments
+        call_args = mock_post.call_args
+        kwargs = call_args.kwargs
+        
+        # Verify headers contain Authorization
+        assert "headers" in kwargs, "Should pass headers dict"
+        headers = kwargs["headers"]
+        assert "Authorization" in headers, "Should have Authorization header"
+        assert headers["Authorization"].startswith("Bearer"), "Should be Bearer token format"
+        
+        # Verify JSON payload structure
+        assert "json" in kwargs, "Should pass json dict"
+        json_payload = kwargs["json"]
+        assert "model_name" in json_payload, "Payload should have model_name"
+        assert "prompt" in json_payload, "Payload should have prompt"
