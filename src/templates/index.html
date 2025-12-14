@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>AI Translator & Critic</title>
+    <!-- Bootstrap CSS (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      /* Minimalist, modern look */
+      body { background: #f7f9fb; }
+      .card { box-shadow: 0 4px 12px rgba(15,15,20,0.05); }
+      textarea { font-family: inherit; }
+    </style>
+  </head>
+  <body>
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-md-10">
+          <div class="card mb-4">
+            <div class="card-body">
+              <h3 class="card-title mb-3">AI Translator & Critic</h3>
+              <p class="text-muted small">Перевод текста и оценка качества перевода с использованием LLM через MentorPiece API.</p>
+
+              <!-- Form: textarea + language select + buttons -->
+              <form method="post">
+                <div class="mb-3">
+                  <label for="source_text" class="form-label">Исходный текст</label>
+                  <textarea class="form-control" id="source_text" name="source_text" rows="6" placeholder="Введите текст для перевода...">{{ original }}</textarea>
+                </div>
+
+                <!-- Language and Mode controls in a compact horizontal layout -->
+                <div class="row g-3 mb-3 align-items-start">
+                  <!-- Language column -->
+                  <div class="col-auto">
+                    <label for="target_lang" class="form-label d-block">Язык перевода:</label>
+                    <select class="form-select form-select-sm" id="target_lang" name="target_lang" style="min-width: 180px;">
+                      <option {% if not request.form.get('target_lang') or request.form.get('target_lang')=='English' %}selected{% endif %}>Английский</option>
+                      <option {% if request.form.get('target_lang')=='French' %}selected{% endif %}>Французский</option>
+                      <option {% if request.form.get('target_lang')=='German' %}selected{% endif %}>Немецкий</option>
+                      <option {% if request.form.get('target_lang')=='Portuguese (Portugal)' %}selected{% endif %}>Португальский</option>
+                    </select>
+                  </div>
+
+                  <!-- Mode column -->
+                  <div class="col-auto">
+                    <label class="form-label d-block">Режим работы:</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <input type="radio" class="btn-check" name="mode" id="mode_mock" value="mock" {% if not request.form.get('mode') or request.form.get('mode')=='mock' %}checked{% endif %}>
+                      <label class="btn btn-outline-secondary" for="mode_mock" title="Использовать MOCK-режим">MOCK</label>
+
+                      <input type="radio" class="btn-check" name="mode" id="mode_no_auth" value="no_auth" {% if request.form.get('mode')=='no_auth' %}checked{% endif %}>
+                      <label class="btn btn-outline-secondary" for="mode_no_auth" title="Использовать API без авторизации">API без Auth</label>
+
+                      <input type="radio" class="btn-check" name="mode" id="mode_auth" value="auth" {% if request.form.get('mode')=='auth' %}checked{% endif %}>
+                      <label class="btn btn-outline-secondary" for="mode_auth" title="Использовать API с авторизацией">API с Auth</label>
+                    </div>
+                  </div>
+
+                  <!-- Buttons column aligned to the right -->
+                  <div class="col-auto ms-auto">
+                    <button type="submit" id="btn_translate" name="action" value="translate" class="btn btn-primary btn-sm me-2">Перевести</button>
+                    <button type="submit" id="btn_judge" name="action" value="judge" class="btn btn-outline-secondary btn-sm">Оценить</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Results area -->
+          {% if original or translated or evaluation %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Оригинал</h5>
+                  <p class="card-text">{{ original | e }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Перевод</h5>
+                  <p class="card-text">{{ translated | e }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Оценка качества (LLM-as-a-Judge)</h5>
+                  <pre class="small">{{ evaluation | e }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS bundle (optional) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

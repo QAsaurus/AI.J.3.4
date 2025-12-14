@@ -1,0 +1,16 @@
+{
+  "name": "ai-translator-critic",
+  "version": "1.0.0",
+  "description": "AI Translator & Critic Flask app with Cypress e2e tests",
+  "scripts": {
+    "cypress:run": "cypress run",
+    "cypress:open": "cypress open",
+    "cypress:headless": "cypress run --headless"
+  },
+  "devDependencies": {
+    "cypress": "^15.7.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
